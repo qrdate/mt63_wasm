@@ -1,6 +1,6 @@
 TARGET = mt63Wasm
 BUILD_DIR = build
-CXX = emcc
+CXX = em++
 LD = $(CXX)
 
 SOURCES = \
@@ -26,12 +26,14 @@ CXXFLAGS = \
 LDFLAGS = \
 -flto \
 --emit-symbol-map \
--s WASM=1 \
--s MODULARIZE=1 \
--s NO_EXIT_RUNTIME=1 \
--s ENVIRONMENT=node \
--s ALLOW_MEMORY_GROWTH=1 \
--s PRECISE_F32=1 \
+--closure 1 \
+-s STRICT \
+-s MODULARIZE \
+-s EXPORT_NAME="mt63"\
+-s SINGLE_FILE \
+-s ENVIRONMENT="web,node" \
+-s NO_FILESYSTEM \
+-s ALLOW_MEMORY_GROWTH \
 -s EXPORTED_FUNCTIONS="$(LIB_EXPORTS)" \
 -s EXPORTED_RUNTIME_METHODS=ccall,cwrap
 
