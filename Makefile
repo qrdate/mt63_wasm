@@ -14,11 +14,10 @@ _encodeString,\
 _getBuffer,\
 _initRx,\
 _processAudio,\
-_processAudioResample,\
-_malloc,\
-_free
+_processAudioResample
 
 CXXFLAGS = \
+-std=c++11 \
 -Werror \
 -Wall \
 -O3 \
