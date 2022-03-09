@@ -28,6 +28,7 @@ LDFLAGS = \
 --emit-symbol-map \
 --closure 1 \
 -s STRICT \
+-s NO_ASSERTIONS \
 -s MODULARIZE \
 -s EXPORT_NAME="mt63"\
 -s SINGLE_FILE \
