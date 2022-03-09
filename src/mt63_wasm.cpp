@@ -7,257 +7,291 @@
 
 using BufferType = float;
 
-const double txLevel = -6.0;
-const double SIGLIMIT = 0.95;
+const double TX_LEVEL = -3.0;
+const double SIG_LIMIT = 0.95;
 
-#define TONE_AMP 0.8
-#define k_SAMPLERATE 8000
-#define k_BUFFERSECONDS 600
-#define k_BUFFER_MAX_SIZE k_SAMPLERATE * k_BUFFERSECONDS // 8000Hz sample rate, 600 seconds (10 minutes)
-//const float CenterFreq = 2000;
-std::vector<BufferType> buffer(k_BUFFER_MAX_SIZE);
+const double TONE_LEVEL = -6.0;
+
+const unsigned int SAMPLE_RATE = 8000;
+const unsigned int BUFFER_SECONDS = 60;
+const unsigned int BUFFER_SIZE = SAMPLE_RATE * BUFFER_SECONDS;
+
+std::vector<BufferType> buffer(BUFFER_SIZE);
 unsigned int bufferSize = 0;
+
 MT63tx Tx;
 MT63rx Rx;
 
-void resetBuffer() {
-    buffer[0] = 0;
-    bufferSize = 0;
-}
-void flushToBuffer(MT63tx *Tx, float mult = 1.0) {
-    while (bufferSize + Tx->Comb.Output.Len > k_BUFFER_MAX_SIZE) {
-        // This is not good! We will overflow the buffer.
-        // The only thing to do is to resize that sucker!
-        buffer.resize(buffer.size() + k_BUFFER_MAX_SIZE * 0.5);
-    }
-    auto lBuffer = &buffer[0];
-    float maxVal = 0.0;
-    for (auto i = 0; i < Tx->Comb.Output.Len; ++i) {
-        auto a = fabs(Tx->Comb.Output.Data[i]);
-        if (a > maxVal) { maxVal = a; }
-    }
-    // maxVal = 1.0;
-    if (mult > SIGLIMIT) { mult = SIGLIMIT; }
-    for (auto i = 0; i < Tx->Comb.Output.Len; ++i) {
-        auto val = Tx->Comb.Output.Data[i] * 1.0f / maxVal * mult;
-        if (val > SIGLIMIT) val = SIGLIMIT;
-        if (val < -SIGLIMIT) val = -SIGLIMIT;
-        lBuffer[bufferSize++] = static_cast<BufferType>(val);
-    }
-}
-void interleaveFlush(MT63tx *Tx) {
-    for (auto i = 0; i < Tx->DataInterleave; ++i) {
-        Tx->SendChar(0);
-        flushToBuffer(Tx);
-    }
+void resetBuffer()
+{
+	buffer[0] = 0;
+	bufferSize = 0;
 }
 
-void sendTone(MT63tx *Tx, int seconds, int bandwidth, int center) {
-    auto lBuffer = &buffer[0];
-    auto samplerate = k_SAMPLERATE;
-    int numsmpls = samplerate * seconds / 512;
-    float w1 = 2.0f * M_PI * (center - bandwidth / 2.0) / samplerate;
-    float w2 = 2.0f * M_PI * (center + 31.0 * bandwidth / 64.0) / samplerate;
-    float phi1 = 0.0;
-    float phi2 = 0.0;
-    for (int i = 0; i < numsmpls; i++) {
-        for (int j = 0; j < 512; j++) {
-            lBuffer[bufferSize++] = TONE_AMP * 0.5 * cos(phi1) +
-                                    TONE_AMP * 0.5 * cos(phi2);
-            phi1 += w1;
-            phi2 += w2;
-            if (i == 0) lBuffer[bufferSize-1] *= (1.0 - exp(-1.0 * j / 40.0));
-            if (i == seconds - 1)
-                lBuffer[bufferSize-1] *= (1.0 - exp(-1.0 * (samplerate - j) / 40.0));
-        }
-    }
-    for (auto i = 0; i < Tx->DataInterleave; ++i) {
-        Tx->SendChar(0);
-    }
+void flushToBuffer(MT63tx *Tx)
+{
+	double mult = pow(10, TX_LEVEL / 20);
+
+	while (bufferSize + Tx->Comb.Output.Len > buffer.size())
+	{
+		// This is not good! We will overflow the buffer.
+		// The only thing to do is to resize that sucker!
+		buffer.resize(buffer.size() * 2);
+	}
+
+	for (auto i = 0; i < Tx->Comb.Output.Len; ++i)
+	{
+		auto val = Tx->Comb.Output.Data[i] * mult;
+
+		if (val > SIG_LIMIT) val = SIG_LIMIT;
+		if (val < -SIG_LIMIT) val = -SIG_LIMIT;
+
+		buffer[bufferSize++] = static_cast<BufferType>(val);
+	}
+}
+
+void interleaveFlush(MT63tx *Tx, bool output)
+{
+	for (auto i = 0; i < Tx->DataInterleave; ++i)
+	{
+		Tx->SendChar(0);
+		if (output)
+			flushToBuffer(Tx);
+	}
+
+	for (auto i = 0; i < 3; i++)
+	{
+		Tx->SendSilence();
+		if (output) flushToBuffer(Tx);
+	}
+}
+
+void sendTone(MT63tx *Tx, double seconds, int bandwidth, int center)
+{
+	const double block_size = 400;
+	int num_blocks = SAMPLE_RATE * seconds / block_size;
+
+	double w1 = 2.0f * M_PI * (center - bandwidth / 2.0) / SAMPLE_RATE;
+	double w2 = 2.0f * M_PI * (center + 31.0 * bandwidth / 64.0) / SAMPLE_RATE;
+	double phi1 = 0.0;
+	double phi2 = 0.0;
+
+	double mult = pow(10, TONE_LEVEL / 20);
+
+	for (int i = 0; i < num_blocks; i++)
+	{
+		for (int j = 0; j < block_size; j++)
+		{
+			double sample = (0.5 * cos(phi1) + 0.5 * cos(phi2)) * mult;
+
+			if (i == 0)
+				sample *= cos((1.0-j/block_size)*M_PI_2);
+
+			if (i == num_blocks - 1)
+				sample *= cos((j/block_size)*M_PI_2);
+
+			buffer[bufferSize++] = sample;
+
+			phi1 += w1;
+			phi2 += w2;
+		}
+	}
 }
 
 std::string lastString;
-std::string lastCRCString;
 
 int escape = 0;
-
 double sqlVal = 8.0;
 
 bool tailExists = false;
-float lastOutput = 0.0;
-float lastWeight = 0;
+double lastOutput = 0.0;
+double lastWeight = 0.0;
 
-size_t inputBufferSize = 10;
-std::vector<float> inputBuffer(10);
+std::vector<float> resampleBuffer(10);
 
-size_t downSample(float* input, size_t bufferLength, float from, float to, float* output) {
-    const auto ratioWeight = from / to;
-    size_t outputOffset = 0;
-    if (bufferLength > 0) {
-        auto buffer = input;
-        auto weight = 0;
-        auto output0 = 0.0f;
-        size_t actualPosition = 0;
-        size_t amountToNext = 0;
-        bool alreadyProcessedTail = !tailExists;
-        tailExists = false;
-        const auto outputBuffer = output;
-        size_t currentPosition = 0;
-        do {
-            if (alreadyProcessedTail) {
-                weight = ratioWeight;
-                output0 = 0;
-            } else {
-                weight = lastWeight;
-                output0 = lastOutput;
-                alreadyProcessedTail = true;
-            }
-            while (weight > 0 && actualPosition < bufferLength) {
-                amountToNext = 1 + actualPosition - currentPosition;
-                if (weight >= amountToNext) {
-                    output0 += buffer[actualPosition++] * amountToNext;
-                    currentPosition = actualPosition;
-                    weight -= amountToNext;
-                } else {
-                    output0 += buffer[actualPosition] * weight;
-                    currentPosition += weight;
-                    weight = 0;
-                    break;
-                }
-            }
-            if (weight <= 0) {
-                outputBuffer[outputOffset++] = output0 / ratioWeight;
-            } else {
-                lastWeight = weight;
-                lastOutput = output0;
-                tailExists = true;
-                break;
-            }
-        } while (actualPosition < bufferLength);
-    }
-    return outputOffset;
+size_t downSample(float *input, size_t bufferLength, double from, double to, float *output)
+{
+	const auto ratioWeight = from / to;
+	size_t outputOffset = 0;
+
+	if (bufferLength > 0)
+	{
+		auto buffer = input;
+		double weight = 0;
+		double output0 = 0.0;
+		size_t actualPosition = 0;
+		size_t amountToNext = 0;
+		bool alreadyProcessedTail = !tailExists;
+		tailExists = false;
+		const auto outputBuffer = output;
+		size_t currentPosition = 0;
+
+		do
+		{
+			if (alreadyProcessedTail)
+			{
+				weight = ratioWeight;
+				output0 = 0;
+			}
+			else
+			{
+				weight = lastWeight;
+				output0 = lastOutput;
+				alreadyProcessedTail = true;
+			}
+
+			while (weight > 0 && actualPosition < bufferLength)
+			{
+				amountToNext = 1 + actualPosition - currentPosition;
+				if (weight >= amountToNext)
+				{
+					output0 += buffer[actualPosition++] * amountToNext;
+					currentPosition = actualPosition;
+					weight -= amountToNext;
+				}
+				else
+				{
+					output0 += buffer[actualPosition] * weight;
+					currentPosition += weight;
+					weight = 0;
+					break;
+				}
+			}
+
+			if (weight <= 0)
+			{
+				outputBuffer[outputOffset++] = output0 / ratioWeight;
+			}
+			else
+			{
+				lastWeight = weight;
+				lastOutput = output0;
+				tailExists = true;
+				break;
+			}
+		}
+		while (actualPosition < bufferLength);
+	}
+
+	return outputOffset;
 }
 
 
+extern "C"
+{
+	void initRx(int center, int bandwidth, int interleave, int integration, double squelch)
+	{
+		Rx.Preset(center, bandwidth, interleave, integration, nullptr);
+		sqlVal = squelch;
+	}
 
+	const char *processAudio(float *samples, int len)
+	{
+		float_buff inBuff;
+		inBuff.Data = samples;
+		inBuff.Len = len;
+		inBuff.Space = len;
 
-extern "C" {
+		Rx.Process(&inBuff);
+		if (Rx.FEC_SNR() < sqlVal)
+		{
+			return "";
+		}
 
-    void initRx(int bandwidth, int interleave, int integration, double squelch, int center) {
-        Rx.Preset(center, bandwidth, interleave, integration, nullptr);
-        sqlVal = squelch;
-    }
+		lastString = std::string();
+		for (auto i = 0; i < Rx.Output.Len; ++i)
+		{
+			auto c = Rx.Output.Data[i];
+			if ((c < 8) && escape == 0)
+			{
+				continue;
+			}
+			if (c == 127)
+			{
+				escape = 1;
+				continue;
+			}
+			if (escape)
+			{
+				c += 128;
+				escape = 0;
+			}
+			lastString.push_back(c);
+		}
 
-    const char* processAudio(float* samples, int len) {
-        float_buff inBuff;
-        inBuff.Data = samples;
-        inBuff.Len = len;
-        inBuff.Space = len;
+		return lastString.c_str();
+	}
 
-        Rx.Process(&inBuff);
-        if (Rx.FEC_SNR() < sqlVal) {
-            return "";
-        }
+	// Note: for reasons that I haven't been able to track down, len must be
+	// an exact multiple of (sampleRate / 8000) -- so if your sample rate is
+	// 48000 then it needs to be evenly divisible by 6. Otherwise you end up
+	// with output that isn't always the same length and realloc calls elsewhere
+	// in the code blow up and die.
+	const char *processAudioResample(float *samples, size_t sampleRate, size_t len)
+	{
+		auto ratioWeight = sampleRate / SAMPLE_RATE;
 
-        lastString = std::string();
-        for (auto i = 0; i < Rx.Output.Len; ++i) {
-            auto c = Rx.Output.Data[i];
-            if ((c < 8) && escape == 0) {
-                continue;
-            }
-            if (c == 127) {
-                escape = 1;
-                continue;
-            }
-            if (escape) {
-                c += 128;
-                escape = 0;
-            }
-            lastString.push_back(c);
-        }
-        // if (!lastString.empty()) {
-        //     printf("Something decoded with SNR of %f: %s\n", Rx.FEC_SNR(), lastString.c_str());
-        // }
-        return lastString.c_str();
-    }
+		if (ratioWeight == 1)
+			return processAudio(samples, len);
+		else if (ratioWeight < 1)
+			return NULL;
 
-    // Note: for reasons that I haven't been able to track down, len must be
-    // an exact multiple of (sampleRate / 8000) -- so if your sample rate is
-    // 48000 then it needs to be evenly divisible by 6. Otherwise you end up
-    // with output that isn't always the same length and realloc calls elsewhere
-    // in the code blow up and die.
-    const char* processAudioResample(float* samples, size_t sampleRate, size_t len) {
-        auto ratioWeight = sampleRate / k_SAMPLERATE;
-        if (ratioWeight == 1) {
-            return processAudio(samples, len);
-        } else if (ratioWeight < 1) {
-            return "ERROR BAD SAMPLE RATE";
-        }
-        // We need to downsample
-        size_t maxOutputSize = static_cast<int>(len / ratioWeight) + 10;
-        if (inputBufferSize < maxOutputSize) {
-            printf("Resizing buffer to %lu\n", maxOutputSize);
-            inputBuffer.resize(maxOutputSize);
-            inputBufferSize = maxOutputSize;
-        }
-        const auto newLen = downSample(samples, len, sampleRate, k_SAMPLERATE, &inputBuffer[0]);
-        // printf("After downsample length is %lu\n", newLen);
+		// We need to downsample
+		size_t maxOutputSize = static_cast<int>(len / ratioWeight) + 10;
+		if (resampleBuffer.size() < maxOutputSize)
+			resampleBuffer.resize(maxOutputSize);
 
-        return processAudio(&inputBuffer[0], newLen);
-    }
+		const auto newLen = downSample(samples, len, sampleRate, SAMPLE_RATE, &resampleBuffer[0]);
 
-    int getSampleRate() {
-        return k_SAMPLERATE;
-    }
+		return processAudio(&resampleBuffer[0], newLen);
+	}
 
-    int encodeString(const char* inStr, int bandwidth, int interleave, int center) {
-        if (bandwidth != 500 && bandwidth != 1000 && bandwidth != 2000) {
-            return 0; // Invalid entry
-        }
-        if (interleave < 0 || interleave > 1) {
-            return 0; // Invalid entry
-        }
-        resetBuffer();
+	int getSampleRate()
+	{
+		return SAMPLE_RATE;
+	}
 
-        double mult = pow(10, txLevel / 20);
-        printf("Using txlevel multiplier of %f\n", mult);
+	int encodeString(const char *inStr, int center, int bandwidth, int interleave)
+	{
+		if (bandwidth != 500 && bandwidth != 1000 && bandwidth != 2000)
+		{
+			return 0; // Invalid entry
+		}
+		if (interleave < 0 || interleave > 1)
+		{
+			return 0; // Invalid entry
+		}
 
-        Tx.Preset(center, bandwidth, interleave);
-        sendTone(&Tx, 2, bandwidth, center);
-        // Tx.SendTune(true);
-        // flushToBuffer(&Tx);
-        // Tx.SendTune(true);
-        // flushToBuffer(&Tx);
-        // Tx.SendTune(true);
-        // flushToBuffer(&Tx);
+		resetBuffer();
 
-        // interleaveFlush(&Tx);
+		Tx.Preset(center, bandwidth, interleave);
 
-        printf("Sending string: %s\n", inStr);
-        for (auto cur = inStr; *cur != NULL; ++cur) {
-            unsigned char c = *cur;
-            if (c > 127) {
-                c &= 127;
-                Tx.SendChar(127);
-                flushToBuffer(&Tx);
-            }
-            Tx.SendChar(*cur);
-            flushToBuffer(&Tx);
-        }
-        interleaveFlush(&Tx);
+		sendTone(&Tx, 1.5, bandwidth, center);
 
-        Tx.SendJam();
-        flushToBuffer(&Tx);
+		interleaveFlush(&Tx, false);
 
-        // Tx.SendSilence();
-        // interleaveFlush(&Tx);
+		for (auto cur = inStr; *cur != 0; ++cur)
+		{
+			unsigned char c = *cur;
 
+			if (c > 127)
+			{
+				c &= 127;
+				Tx.SendChar(127);
+				flushToBuffer(&Tx);
+			}
 
-        return bufferSize;
-    }
+			Tx.SendChar(c);
+			flushToBuffer(&Tx);
+		}
 
-    BufferType* getBuffer() {
-        return &buffer[0];
-    }
+		interleaveFlush(&Tx, true);
 
+		return bufferSize;
+	}
+
+	BufferType *getBuffer()
+	{
+		return &buffer[0];
+	}
 }
