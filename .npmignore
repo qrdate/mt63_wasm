@@ -1,4 +1,0 @@
-dist/*.test.js
-dist/*.test.ts.d
-dist/*.js.map
-*.js

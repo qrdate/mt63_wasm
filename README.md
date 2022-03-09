@@ -5,96 +5,24 @@ using emscripten to allow encoding MT63 messages and "sending" them from an HTML
 web application; this could be used to reliably transmit data from a smartphone app
 across Amateur Radio FM signals on VHF/UHF.
 
+
 # Release notes
 
+* ?.?.? - Strip down library to just contain the WASM code, switch to building with make
 * 1.5.0 - Add support for downsampling in WASM code
 * 1.4.0 - Rebuild using a newer more optimized version of emscripten
 * 1.3.3 - Misc updates to allow customization of the emscripten load Module
 * 1.2.2 - Fixed broken wasm binary on iOS 
 
+
 # Preparing to build
 
-Currently we have it set up to build on linux or macOS.
+Install a emscripten.
 
-First you need to have cmake installed. Next, check to see what versions :
-
-    cd emsdk_portable
-    ./emsdk list
-
-Install the correct sdk version for your platform. We're building on macOS successfully using:
-
-    ./emsdk install sdk-1.38.4-64bit
-
-Note that we've had issues with iOS on later builds
 
 # Building
 
-- Need to put in LLVM_ROOT pointing to emsdk_portable/upstream/bin
-- Need to put in BINARYEN_ROOT pointing to binaryen@101:
-  ```
-  brew extract --version=101 binaryen homebrew/cask
-  brew install binaryen@101
-  ```
-- Config in `emsdk_portable/upstream/emscripten/.emscripten`
-  ```
-  LLVM_ROOT = '/Users/jh/dev/qrdate/mt63_wasm/emsdk_portable/upstream/bin' # directory
-  BINARYEN_ROOT = '/usr/local/Cellar/binaryen@101/101'
-  ```
-
-Once that's done, building is a simple two-step process:
-
-    ./prepemscripten.sh
-    cmake --build native_build/
-
-You should now have a build/ directory.  Copy index.html into the build/ directory and run some sort of static web server there.  I use node-static: `npm install -g node-static`. If you have node-static installed you can start a server like so:
-
-    cd native_build/
-    static .
-
-Open http://localhost:8080 in your browser, open a console, and run `sendMessage("This is a test message");` You should hear the mt63 come through.
-
-# Status
-
-This is being used by the Runner-tracker app. To use, do something like this:
-
-    /// <reference types="webassembly-js-api" />
-    // The above is to get types for WebAssembly -- fix this however works for you
-
-    // tslint:disable:no-var-imports
-    // tslint:disable:no-var-requires
-
-    import {
-        setFileLocation,
-        initialize,
-        MT63Client,
-    } from 'mt63-wasm';
-
-    import {
-        wasmModule,
-    } from 'mt63-wasm/dist/wasmModule';
-
-    const wasmFile = require("mt63-wasm/dist/mt63Wasm.wasm");
-
-    setFileLocation("mt63Wasm.wasm", wasmFile);
-    export const readyDfd = initialize();
-
-    export {MT63Client, wasmModule};
-
-You may need to update your webpack config to override the type for
-the webassembly file to "javascript/auto" and use "file-loader" to
-load it to make this work. Our vue.config.js file looks like this:
-
-    module.exports = {
-        publicPath: process.env.GITLAB_CI ? '/runner-tracker/' : '/',
-        chainWebpack: config => {
-            config.module
-                .rule('wasm')
-                .test(/\.wasm$/)
-                .type("javascript/auto")
-                .use('file-loader')
-                    .loader('file-loader');
-        }
-    };
+Run `make`.
 
 
 # Shameless plugs
