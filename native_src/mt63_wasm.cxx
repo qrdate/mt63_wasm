@@ -15,7 +15,7 @@ const double SIGLIMIT = 0.95;
 #define k_SAMPLERATE 8000
 #define k_BUFFERSECONDS 600
 #define k_BUFFER_MAX_SIZE k_SAMPLERATE * k_BUFFERSECONDS // 8000Hz sample rate, 600 seconds (10 minutes)
-const float CenterFreq = 1500;
+//const float CenterFreq = 2000;
 std::vector<BufferType> buffer(k_BUFFER_MAX_SIZE);
 unsigned int bufferSize = 0;
 MT63tx Tx;
@@ -53,12 +53,12 @@ void interleaveFlush(MT63tx *Tx) {
     }
 }
 
-void sendTone(MT63tx *Tx, int seconds, int bandwidth) {
+void sendTone(MT63tx *Tx, int seconds, int bandwidth, int center) {
     auto lBuffer = &buffer[0];
     auto samplerate = k_SAMPLERATE;
     int numsmpls = samplerate * seconds / 512;
-    float w1 = 2.0f * M_PI * (CenterFreq - bandwidth / 2.0) / samplerate;
-    float w2 = 2.0f * M_PI * (CenterFreq + 31.0 * bandwidth / 64.0) / samplerate;
+    float w1 = 2.0f * M_PI * (center - bandwidth / 2.0) / samplerate;
+    float w2 = 2.0f * M_PI * (center + 31.0 * bandwidth / 64.0) / samplerate;
     float phi1 = 0.0;
     float phi2 = 0.0;
     for (int i = 0; i < numsmpls; i++) {
@@ -150,8 +150,8 @@ extern "C" {
         return lastCRCString.c_str();
     }
 
-    void initRx(int bandwidth, int interleave, int integration, double squelch) {
-        Rx.Preset(CenterFreq, bandwidth, interleave, integration, nullptr);
+    void initRx(int bandwidth, int interleave, int integration, double squelch, int center) {
+        Rx.Preset(center, bandwidth, interleave, integration, nullptr);
         sqlVal = squelch;
     }
 
@@ -217,7 +217,7 @@ extern "C" {
         return k_SAMPLERATE;
     }
 
-    int encodeString(const char* inStr, int bandwidth, int interleave) {
+    int encodeString(const char* inStr, int bandwidth, int interleave, int center) {
         if (bandwidth != 500 && bandwidth != 1000 && bandwidth != 2000) {
             return 0; // Invalid entry
         }
@@ -229,8 +229,8 @@ extern "C" {
         double mult = pow(10, txLevel / 20);
         printf("Using txlevel multiplier of %f\n", mult);
 
-        Tx.Preset(1500, bandwidth, interleave);
-        sendTone(&Tx, 2, bandwidth);
+        Tx.Preset(center, bandwidth, interleave);
+        sendTone(&Tx, 2, bandwidth, center);
         // Tx.SendTune(true);
         // flushToBuffer(&Tx);
         // Tx.SendTune(true);

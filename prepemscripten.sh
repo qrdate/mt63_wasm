@@ -18,9 +18,10 @@ LLVM_ROOT="${LLVM_LINK%/*}"
 LLVM=${LLVM_ROOT}
 echo "LLVM path: $LLVM_ROOT"
 EMSDK_CONFIG=`find $(pwd)/emsdk_portable -name emconfigure`
-EMSDK_ROOT="${EMSDK_CONFIG%/*}"
 
 NODE_PATH=$(which node)
+
+echo "Node path: $NODE_PATH"
 
 EMSCRIPTEN_CONFIG="
 import os
@@ -41,6 +42,7 @@ CRUNCH = os.path.expanduser(os.getenv('CRUNCH') or 'crunch') # executable
 
 COMPILER_ENGINE = NODE_JS
 JS_ENGINES = [NODE_JS] # add this if you have spidermonkey installed too, SPIDERMONKEY_ENGINE]
+BINARYEN_ROOT = '/usr/local/opt/binaryen'
 "
 
 if [ ! -x "~/.emscripten" ]; then

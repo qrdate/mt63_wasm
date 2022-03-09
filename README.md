@@ -29,14 +29,26 @@ Note that we've had issues with iOS on later builds
 
 # Building
 
+- Need to put in LLVM_ROOT pointing to emsdk_portable/upstream/bin
+- Need to put in BINARYEN_ROOT pointing to binaryen@101:
+  ```
+  brew extract --version=101 binaryen homebrew/cask
+  brew install binaryen@101
+  ```
+- Config in `emsdk_portable/upstream/emscripten/.emscripten`
+  ```
+  LLVM_ROOT = '/Users/jh/dev/qrdate/mt63_wasm/emsdk_portable/upstream/bin' # directory
+  BINARYEN_ROOT = '/usr/local/Cellar/binaryen@101/101'
+  ```
+
 Once that's done, building is a simple two-step process:
 
     ./prepemscripten.sh
-    cmake --build build/
+    cmake --build native_build/
 
 You should now have a build/ directory.  Copy index.html into the build/ directory and run some sort of static web server there.  I use node-static: `npm install -g node-static`. If you have node-static installed you can start a server like so:
 
-    cd build/
+    cd native_build/
     static .
 
 Open http://localhost:8080 in your browser, open a console, and run `sendMessage("This is a test message");` You should hear the mt63 come through.
