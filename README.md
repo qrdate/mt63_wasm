@@ -1,36 +1,42 @@
-# mt63_wasm
+# mt63-wasm
 
-This is very much a work in progress; the idea is to compile a mt63 library to wasm
-using emscripten to allow encoding MT63 messages and "sending" them from an HTML5 audio
-web application; this could be used to reliably transmit data from a smartphone app
-across Amateur Radio FM signals on VHF/UHF.
+This WASM module wraps work done by Pawel Jalocha, SP9VRC and Dave Freese, W1HKJ on the MT63 transmitter and receiver in C++ for Linux.
 
+[The original code for this repo](https://github.com/taxilian/mt63_wasm) is by Richard Bateman, founder of [HamStudy.org](https://hamstudy.org/).
 
-# Release notes
+### Notes
 
-* ?.?.? - Strip down library to just contain the WASM code, switch to building with make
+The resulting code for this module is inlined inside the generated .js file. As the module is not large (the resulting file is about 94kB), we see this as a sufficient workaround to importing the module across environments without resulting to other hacks before `new URL(url, import.meta.url)` is universally supported.
+
+## Release notes
+
+### 2.0.0
+
+- Strip down library to just contain the WASM code
+- Switch to building with make
+- Patches to C++ glue code
+- Update emscripten config to inline the resulting .wasm file
+- Center frequency is not fixed to 1500Hz anymore
+
+### Previous
+
 * 1.5.0 - Add support for downsampling in WASM code
 * 1.4.0 - Rebuild using a newer more optimized version of emscripten
 * 1.3.3 - Misc updates to allow customization of the emscripten load Module
-* 1.2.2 - Fixed broken wasm binary on iOS 
+* 1.2.2 - Fixed broken wasm binary on iOS
 
+## Preparing to build
 
-# Preparing to build
+Install and activate emsdk (don't forget the env vars):
+https://emscripten.org/docs/getting_started/downloads.html
 
-Install a emscripten.
-
-
-# Building
+## Building
 
 Run `make`.
 
+Resulting files will be in `build/`.
 
-# Shameless plugs
-
-This project relies heavily on the fldigi MT63 code and was put together by Richard Bateman, founder of HamStudy.org. To support our efforts, check out https://signalstuff.com/antennas (our main source of funding) and https://hamstudy.org/appstore for well engineered study apps for only $3.99. HamStudy.org is sponsored by Icom, which means that in a round-about sort of way Icom also sponsors this project =] They really
-do a lot to build the ham radio community in the US so support them in whatever ways you can!
-
-# License
+## License
 
 mt63-wasm is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
