@@ -1,16 +1,10 @@
-const fs = require( 'fs' )
+import * as fs from "fs";
 
-const mt63 = require( "../build/mt63Wasm" );
+import { mt63Source } from "../dist/mt63-wasm.js";
+import { MT63 } from "../dist/mt63.js"
 
-mt63().then( module =>
-{
-	const mt63EncodeString = module.cwrap( 'encodeString', 'number', [ 'string', 'number', 'number', 'number' ] );
-	const mt63GetBuffer = module.cwrap( 'getBuffer', 'number' );
+const mt63 = new MT63( mt63Source );
 
-	let buff_size = mt63EncodeString( "MT63 Test!", 2000, 2000, 1 );
-	let buff_offset = mt63GetBuffer();
+const data = mt63.encode( "MT63 Test!", 2000, 2000, 1 );
 
-	let data = module.HEAPF32.subarray( buff_offset / 4, buff_offset / 4 + buff_size );
-
-	fs.writeFileSync( './encoded.raw', data );
-} );
+fs.writeFileSync( './encoded.raw', data );
