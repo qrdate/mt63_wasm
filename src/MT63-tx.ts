@@ -1,6 +1,6 @@
 import { TinyWASI } from "tinywasi";
 
-export class MT63
+export class MT63Tx
 {
 	private tinyWASI: TinyWASI = new TinyWASI();
 	private instance: WebAssembly.Instance;
@@ -12,24 +12,26 @@ export class MT63
 		this.tinyWASI.initialize( this.instance );
 	}
 
-	encode( text: string, center: number, bandwidth: 500 | 1000 | 2000, interleave: 0 | 1 ): Float32Array
+	transmit( text: string, center: number, bandwidth: 500 | 1000 | 2000, interleave: 0 | 1 ): Float32Array
 	{
-		const getEncodeText = this.instance.exports.getEncodeText as CallableFunction;
-		const encode = this.instance.exports.encode as CallableFunction;
-		const getEncodeAudio = this.instance.exports.getEncodeAudio as CallableFunction;
+		const getInputBuffer = this.instance.exports.getInputBuffer as CallableFunction;
+		const transmit = this.instance.exports.transmit as CallableFunction;
+		const getOutputBuffer = this.instance.exports.getOutputBuffer as CallableFunction;
 
 		const data = new TextEncoder().encode( text );
 
-		const textPtr = getEncodeText( data.byteLength );
+		const textPtr = getInputBuffer( data.byteLength );
 		const memory = new Uint8Array( this.getMemory().buffer, textPtr, data.byteLength );
 		memory.set( data );
 
-		const audioLength = encode( center, bandwidth, interleave );
+		const audioLength = transmit( center, bandwidth, interleave );
 
-		if( audioLength == 0 )
+		console.log( "Size 3: " + audioLength );
+
+		if( audioLength == -1 )
 			throw new Error( "Encoding Failed!" );
 
-		const audioPtr = getEncodeAudio();
+		const audioPtr = getOutputBuffer();
 		const audio = new Float32Array( this.getMemory().buffer, audioPtr, audioLength );
 
 		return audio.subarray();
