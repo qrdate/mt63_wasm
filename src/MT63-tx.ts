@@ -26,8 +26,6 @@ export class MT63Tx
 
 		const audioLength = transmit( center, bandwidth, interleave );
 
-		console.log( "Size 3: " + audioLength );
-
 		if( audioLength == -1 )
 			throw new Error( "Encoding Failed!" );
 
