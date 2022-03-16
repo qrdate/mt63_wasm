@@ -5,7 +5,7 @@
 	"types": "dist/index.d.ts",
 	"type": "module",
 	"scripts": {
-		"prepare": "make && tsc",
+		"prepare": "make && eslint src/**.ts && tsc",
 		"test": "node test/test_encode.js"
 	},
 	"author": "QRDate",
