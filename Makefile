@@ -13,6 +13,7 @@ SOURCE_PATHS = \
 src/native/
 
 SOURCES = \
+src/native/resampler.cpp \
 src/native/mt63/mt63base.cpp \
 src/native/mt63/dsp.cpp
 

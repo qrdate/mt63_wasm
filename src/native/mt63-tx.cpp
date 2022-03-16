@@ -1,7 +1,10 @@
 
-#include "mt63/mt63base.h"
 #include <cstdint>
 #include <vector>
+
+#include "mt63/mt63base.h"
+#include "resampler.h"
+
 
 #define WASM_EXPORT(name) __attribute__((export_name(#name)))
 
@@ -14,7 +17,10 @@ const unsigned int SAMPLE_RATE = 8000;
 const unsigned int BUFFER_SECONDS = 60;
 const unsigned int BUFFER_SIZE = SAMPLE_RATE * BUFFER_SECONDS;
 
-MT63tx Tx;
+MT63tx tx;
+
+unsigned int outputSampleRate = SAMPLE_RATE;
+Resampler *resampler = new Resampler(SAMPLE_RATE, outputSampleRate, 64, 32);
 
 using AudioSampleType = float;
 using DataType = uint8_t;
@@ -22,21 +28,17 @@ using DataType = uint8_t;
 // Preallocate the output buffer with a specific size so that we can avoid
 // costly reallocation of the backing storage as much as possible.
 std::vector<AudioSampleType> outputBuffer(BUFFER_SIZE);
+std::vector<AudioSampleType> resampleBuffer(BUFFER_SIZE);
 std::vector<DataType> inputBuffer;
 
 
-int WASM_EXPORT(getSampleRate)getSampleRate()
-{
-	return SAMPLE_RATE;
-}
-
-void flushToBuffer(MT63tx *Tx)
+void flushToBuffer(MT63tx *tx)
 {
 	double mult = pow(10, TX_LEVEL / 20);
 
-	for (auto i = 0; i < Tx->Comb.Output.Len; i++)
+	for (auto i = 0; i < tx->Comb.Output.Len; i++)
 	{
-		auto val = Tx->Comb.Output.Data[i] * mult;
+		auto val = tx->Comb.Output.Data[i] * mult;
 
 		if (val > SIG_LIMIT) val = SIG_LIMIT;
 		if (val < -SIG_LIMIT) val = -SIG_LIMIT;
@@ -45,13 +47,13 @@ void flushToBuffer(MT63tx *Tx)
 	}
 }
 
-void interleaveFlush(MT63tx *Tx, bool silent)
+void interleaveFlush(MT63tx *tx, bool silent)
 {
-	for (auto i = 0; i < Tx->DataInterleave; ++i)
+	for (auto i = 0; i < tx->DataInterleave; ++i)
 	{
-		Tx->SendChar(0);
+		tx->SendChar(0);
 		if (!silent)
-			flushToBuffer(Tx);
+			flushToBuffer(tx);
 	}
 
 	// We need at least two frames of silence to flush all the internal state
@@ -60,13 +62,13 @@ void interleaveFlush(MT63tx *Tx, bool silent)
 	// of transmissions.
 	for (auto i = 0; i < 3; i++)
 	{
-		Tx->SendSilence();
+		tx->SendSilence();
 		if (!silent)
-			flushToBuffer(Tx);
+			flushToBuffer(tx);
 	}
 }
 
-void sendTone(MT63tx *Tx, double seconds, int bandwidth, int center)
+void sendTone(MT63tx *tx, double seconds, int bandwidth, int center)
 {
 	const double frameSize = 400;
 	int numFrames = SAMPLE_RATE * seconds / frameSize;
@@ -101,6 +103,13 @@ void sendTone(MT63tx *Tx, double seconds, int bandwidth, int center)
 	}
 }
 
+void WASM_EXPORT(setSampleRate)setSampleRate(unsigned int sampleRate)
+{
+	delete resampler;
+	resampler = new Resampler(SAMPLE_RATE, sampleRate, 64, 32);
+	outputSampleRate = sampleRate;
+}
+
 size_t WASM_EXPORT(transmit)transmit(int center, int bandwidth, int interleave)
 {
 	if (bandwidth != 500 && bandwidth != 1000 && bandwidth != 2000)
@@ -111,26 +120,35 @@ size_t WASM_EXPORT(transmit)transmit(int center, int bandwidth, int interleave)
 
 	outputBuffer.clear();
 
-	Tx.Preset(center, bandwidth, interleave);
+	tx.Preset(center, bandwidth, interleave);
 
-	sendTone(&Tx, 1.5, bandwidth, center);
+	sendTone(&tx, 1.5, bandwidth, center);
 
-	interleaveFlush(&Tx, true);
+	interleaveFlush(&tx, true);
 
 	for (DataType c : inputBuffer)
 	{
 		if (c > 0x7F)
 		{
 			c &= 0x7F;
-			Tx.SendChar(0x7F);
-			flushToBuffer(&Tx);
+			tx.SendChar(0x7F);
+			flushToBuffer(&tx);
 		}
 
-		Tx.SendChar(c);
-		flushToBuffer(&Tx);
+		tx.SendChar(c);
+		flushToBuffer(&tx);
 	}
 
-	interleaveFlush(&Tx, false);
+	interleaveFlush(&tx, false);
+
+	if (outputSampleRate != SAMPLE_RATE)
+	{
+		resampleBuffer.assign(outputBuffer.begin(), outputBuffer.end());
+		outputBuffer.clear();
+		resampler->reset();
+		resampler->process(&resampleBuffer, &outputBuffer);
+		resampler->flush(&outputBuffer);
+	}
 
 	return outputBuffer.size();
 }

@@ -4,10 +4,13 @@ export class MT63Tx {
     private tinyWASI: TinyWASI = new TinyWASI();
     private instance: WebAssembly.Instance;
 
-    constructor(source: BufferSource) {
+    constructor(source: BufferSource, sampleRate = 8000) {
         const mod = new WebAssembly.Module(source);
         this.instance = new WebAssembly.Instance(mod, this.tinyWASI.imports);
         this.tinyWASI.initialize(this.instance);
+
+        const setSampleRate = this.instance.exports.setSampleRate as CallableFunction;
+        setSampleRate(sampleRate);
     }
 
     transmit(
