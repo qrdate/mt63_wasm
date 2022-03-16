@@ -17,11 +17,6 @@ const unsigned int SAMPLE_RATE = 8000;
 const unsigned int BUFFER_SECONDS = 60;
 const unsigned int BUFFER_SIZE = SAMPLE_RATE * BUFFER_SECONDS;
 
-MT63tx tx;
-
-unsigned int outputSampleRate = SAMPLE_RATE;
-Resampler *resampler = new Resampler(SAMPLE_RATE, outputSampleRate, 64, 32);
-
 using AudioSampleType = float;
 using DataType = uint8_t;
 
@@ -31,8 +26,13 @@ std::vector<AudioSampleType> outputBuffer(BUFFER_SIZE);
 std::vector<AudioSampleType> resampleBuffer(BUFFER_SIZE);
 std::vector<DataType> inputBuffer;
 
+unsigned int outputSampleRate = SAMPLE_RATE;
+Resampler *resampler = new Resampler(SAMPLE_RATE, outputSampleRate, 64, 32);
 
-void flushToBuffer(MT63tx *tx)
+MT63tx tx;
+
+
+static void flushToBuffer(MT63tx *tx)
 {
 	double mult = pow(10, TX_LEVEL / 20);
 
@@ -47,7 +47,7 @@ void flushToBuffer(MT63tx *tx)
 	}
 }
 
-void interleaveFlush(MT63tx *tx, bool silent)
+static void interleaveFlush(MT63tx *tx, bool silent)
 {
 	for (auto i = 0; i < tx->DataInterleave; ++i)
 	{
@@ -68,7 +68,7 @@ void interleaveFlush(MT63tx *tx, bool silent)
 	}
 }
 
-void sendTone(MT63tx *tx, double seconds, int bandwidth, int center)
+static void sendTone(MT63tx *tx, double seconds, int bandwidth, int center)
 {
 	const double frameSize = 400;
 	int numFrames = SAMPLE_RATE * seconds / frameSize;
@@ -158,7 +158,7 @@ AudioSampleType *WASM_EXPORT(getOutputBuffer)getOutputBuffer()
 	return outputBuffer.data();
 }
 
-const unsigned char *WASM_EXPORT(getInputBuffer)getInputBuffer(size_t length)
+const DataType *WASM_EXPORT(getInputBuffer)getInputBuffer(size_t length)
 {
 	inputBuffer.resize(length);
 	return inputBuffer.data();
