@@ -25,11 +25,6 @@ The resulting code for this module is inlined inside the generated .js file. As 
 * 1.3.3 - Misc updates to allow customization of the emscripten load Module
 * 1.2.2 - Fixed broken wasm binary on iOS
 
-## Preparing to build
-
-Install and activate emsdk (don't forget the env vars):
-https://emscripten.org/docs/getting_started/downloads.html
-
 ## Building
 
 Run `make`.
