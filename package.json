@@ -1,17 +1,29 @@
 {
-	"name": "mt63-wasm",
+	"name": "@qrdate/mt63-wasm",
 	"version": "1.0.0",
-	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
 	"type": "module",
 	"scripts": {
+		"clean": "make clean",
 		"prepare": "make && tsc",
 		"test": "node test/test_encode.js"
 	},
-	"author": "QR Date",
+	"exports": {
+		"./types": "./dist/index.d.ts",
+		"./package.json": "./package.json",
+		".": "./dist/index.js"
+	},
+	"engines": {
+		"node": "^14.19.0 || >=16.0.0"
+	},
+	"author": "QRDate.org + contributors",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/qrdate/mt63_wasm.git"
+	},
 	"license": "GPL-3.0-or-later",
 	"dependencies": {
-		"tinywasi": "file:../tinywasi"
+		"tinywasi": "^1.0.2"
 	},
 	"devDependencies": {
 		"@types/node": "^17.0.21",
