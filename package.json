@@ -5,22 +5,17 @@
 	"types": "dist/index.d.ts",
 	"type": "module",
 	"scripts": {
-		"prepare": "make && eslint src/**.ts && tsc",
+		"prepare": "make && tsc",
 		"test": "node test/test_encode.js"
 	},
-	"author": "QRDate",
+	"author": "QR Date",
 	"license": "GPL-3.0-or-later",
 	"dependencies": {
 		"tinywasi": "file:../tinywasi"
 	},
 	"devDependencies": {
 		"@types/node": "^17.0.21",
-		"typescript": "^4.6.2",
-		"eslint": "^8.11.0",
-		"prettier": "^2.6.0",
-		"@typescript-eslint/eslint-plugin": "^5.15.0",
-		"@typescript-eslint/parser": "^5.15.0",
-		"eslint-config-prettier": "^8.5.0"
+		"typescript": "^4.6.2"
 	},
 	"files": [
 		"dist/"
