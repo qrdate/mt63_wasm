@@ -10,6 +10,13 @@ The resulting code for this module is inlined inside the generated .js file. As 
 
 ## Release notes
 
+### 2.1.0
+
+- Switched to use clang and [TinyWASI](https://github.com/qrdate/tinywasi) runtime instead of emscripten
+- New Lanczos resampler
+- Separated received and transmitter into their own binaries
+- Removed ESLint
+
 ### 2.0.0
 
 - Strip down library to just contain the WASM code
@@ -25,23 +32,20 @@ The resulting code for this module is inlined inside the generated .js file. As 
 * 1.3.3 - Misc updates to allow customization of the emscripten load Module
 * 1.2.2 - Fixed broken wasm binary on iOS
 
+## Requirements
+
+- Version of clang that supports the reactor model (13 or up)
+
 ## Building
 
 Run `make`.
 
-Resulting files will be in `build/`.
+Resulting files will be in `dist/`.
 
 ## License
 
-mt63-wasm is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+mt63-wasm is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 
-mt63-wasm is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+mt63-wasm is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this project.  If not, see <http://www.gnu.org/licenses/>.
+You should have received a copy of the GNU General Public License along with this project.  If not, see <http://www.gnu.org/licenses/>.
